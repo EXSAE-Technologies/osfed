@@ -9,7 +9,8 @@ class MainWindow(QWidget):
     def __init__(self):
         QWidget.__init__(self)
         self.setWindowTitle("OSFED")
-        icon = QIcon(os.path.join("images","designer.ico"))
+        source_dir = os.path.abspath(os.path.dirname(__file__))
+        icon = QIcon(os.path.join(source_dir, "images/designer.ico"))
         self.setWindowIcon(icon)
 
 app = QApplication(sys.argv)
