@@ -15,5 +15,7 @@ document.addChild(html)
 text = api.Text("Hello World")
 html.addChild(text, document)
 
-print(api.genereteDocument(document))
-print(document.childObjects)
+def show():
+    global document
+    global api
+    return api.genereteDocument(document)
