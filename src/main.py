@@ -15,6 +15,11 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 import sys, os
 import api
 
+class CustomPage(QWebEnginePage):
+    def javaScriptConsoleMessage(self, level: 'QWebEnginePage.JavaScriptConsoleMessageLevel', message: str, lineNumber: int, sourceID: str) -> None:
+        print(level)
+        #return super().javaScriptConsoleMessage(level, message, lineNumber, sourceID)
+        
 class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -47,7 +52,10 @@ class MainWindow(QMainWindow):
         self.right.setLayout(self.layoutRight)
 
         self.browser = QWebEngineView()
+        page = CustomPage(parent=self.browser)
+        self.browser.setPage(page)
         self.browser.setHtml(api.genereteDocument(self.document))
+        self.browser.loadFinished.connect(lambda: self.browser.page().runJavaScript('document.addEventListener("click", (data)=>{console.log(data.target.getAttribute("osfed"));});'))
         self.layoutRight.addWidget(self.browser)
     
     def NewDocumentDialog(self):
