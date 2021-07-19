@@ -9,8 +9,8 @@ class Doc:
     
     def addChild(self, element):
         index = len(self.childObjects)
-        obj = {"index": index, "el": element}
-        self.childObjects.append(obj)
+        element.osfed = str(index)
+        self.childObjects.append(element)
         self.children.append(index)
 
 class Attribute:
@@ -28,19 +28,30 @@ class El:
         self.name = name
         self.classes = []
         self.attributes = attributes
+        self.osfed = ""
+        self.innerHTML = ""
 
     def __str__(self):
         return "Element"
         
     def addChild(self, element, document):
         index = len(document.childObjects)
-        obj = {"index": index, "el": element}
-        document.childObjects.append(obj)
+        element.osfed = str(index)
+        document.childObjects.append(element)
         self.children.append(index)
 
-class Text:
+class Text(El):
+    def __init__(self, value=""):
+        El.__init__(self, "span")
+        self.innerHTML = value
+    
+    def __str__(self):
+        return super().__str__()
+
+class Dext:
     def __init__(self, value=""):
         self.value = value
+        self.attributes = []
     
     def __str__(self):
         return "Text"
@@ -66,9 +77,9 @@ def new_document(name="new"):
     return document
 
 def generateElement(elementIndex, document):
-    element = document.childObjects[elementIndex]["el"]
+    element = document.childObjects[elementIndex]
     if element.__str__() == "Element":
-        html = "<" + element.name + " "
+        html = "<" + element.name + " osfed='" + element.osfed + "' "
 
         if element.classes: 
             html += " class='"
@@ -79,11 +90,11 @@ def generateElement(elementIndex, document):
         for attribute in element.attributes:
             html += attribute.key
             if attribute.value == "":
-                pass
+                html += " "
             else:
                 html += "='" + attribute.value + "' "
         
-        html += ">"
+        html += ">" + element.innerHTML
 
         for child in element.children:
             html += generateElement(child, document)
@@ -96,12 +107,12 @@ def generateElement(elementIndex, document):
 
     return html
 
-def genereteDocument(document):
+def generateDocument(document):
     html = ""
 
-    for child in document.children:
-        html += generateElement(child, document)
+    for i in range(len(document.children)):
+        html += generateElement(i, document)
 
     return html
 
-#print(genereteDocument(new_document()))
+#print(generateDocument(new_document()))
