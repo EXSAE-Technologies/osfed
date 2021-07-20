@@ -2,8 +2,10 @@ from PyQt5.QtCore import QObject, QUrl, pyqtSignal
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QLineEdit,
     QListWidget,
@@ -11,6 +13,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QSplashScreen,
     QStackedWidget,
+    QToolBar,
     QWidget,
     QSplitter,
     QVBoxLayout,
@@ -28,9 +31,13 @@ class CustomPage(QWebEnginePage):
 
 class Document(QObject):
     viewUpdated = pyqtSignal()
+    documentChanged = pyqtSignal()
     def __init__(self):
         QObject.__init__(self)
         self.doc = api.Doc()
+    
+    def changeDocument(self):
+        self.documentChanged.emit()
     
     def updateView(self):
         self.viewUpdated.emit()
@@ -52,12 +59,17 @@ class MainWindow(QMainWindow):
 
         self.document = Document()
         self.document.viewUpdated.connect(self.reloadView)
+        self.document.documentChanged.connect(self.onDocumentChange)
+        self.document.changeDocument()
 
         self.actionDocument = self.menuBar().addMenu("Document")
-        self.actionDocument.addAction("New").triggered.connect(self.NewDocumentDialog)
+        self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/new_document.svg")), "New").triggered.connect(self.NewDocumentDialog)
+        self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/save_document.svg")), "Save").triggered.connect(self.saveWorkSpace)
+        self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/open_workspace.svg")), "Open").triggered.connect(self.openWorkSpace)
 
-        self.actionAdd = self.menuBar().addMenu("Add")
-        self.actionAdd.addAction("Element").triggered.connect(self.NewElementDialog)
+        self.toolBar = QToolBar()
+        self.addToolBar(self.toolBar)
+        self.toolBar.addAction(QIcon(os.path.join(self.source_dir, "images/new_element.svg")), "Add element").triggered.connect(self.NewElementDialog)
 
         self.browser = QWebEngineView()
         page = CustomPage(parent=self.browser)
@@ -74,24 +86,55 @@ class MainWindow(QMainWindow):
             else:
                 self.EditElementDialog(message)
     
+    def saveWorkSpace(self):
+        filename = os.path.join(self.source_dir, "tmp/"+self.document.doc.name+".json")
+        api.export_to_json(filename, self.document.doc)
+    
+    def openWorkSpace(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Open document", os.path.join(self.source_dir, "tmp"), "JSON (*.json)")
+        self.document.doc = api.open_from_file(filename)
+        self.document.updateView()
+        self.document.changeDocument()
+    
     def NewElementDialog(self):
         dlg = QDialog()
-        dlg.setWindowTitle("Edit Element")
+        dlg.setWindowTitle("New Element")
         dlg.setWindowIcon(self.icon)
 
-        layout = QVBoxLayout()
+        layout = QFormLayout()
         dlg.setLayout(layout)
+        
+        combo = QComboBox()
+        for element in self.document.doc.childObjects:
+            if element.type == "open":
+                pass
+            else:
+                combo.addItem(element.osfed)
+        layout.addRow(QLabel("Parent Element OSFED ID: "), combo)
 
-        message = QLabel("New element")
-        layout.addWidget(message)
+        elementType = QComboBox()
+        elementType.addItems(["closed", "open"])
+        layout.addRow(QLabel("Type: "), elementType)
+
+        elementName = QLineEdit()
+        layout.addRow(QLabel("Element Name"), elementName)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttonBox.rejected.connect(dlg.reject)
         buttonBox.accepted.connect(dlg.accept)
         layout.addWidget(buttonBox)
 
+        dlg.accepted.connect(lambda: self.add_new_element(combo.currentText(), elementName.text(), elementType.currentText()))
+
         dlg.exec_()
     
+    def add_new_element(self, parent, name, type):
+        element = api.El(name=name, type=type)
+        p = self.document.doc.childObjects[int(parent)]
+        p.addChild(element, self.document.doc)
+
+        self.EditElementDialog(element.osfed)
+
     def EditElementDialog(self, index):
         element = self.document.doc.childObjects[int(index)]
 
@@ -132,6 +175,10 @@ class MainWindow(QMainWindow):
         applyChanges = QPushButton(text="Apply Changes")
         applyChanges.clicked.connect(lambda: self.changeGeneralElement(index, name.text(), innerHTML.text()))
         generalLayout.addWidget(applyChanges)
+
+        delete = QPushButton(text="Delete")
+        delete.clicked.connect(lambda: self.deleteElement(index, dlg))
+        generalLayout.addWidget(delete)
         #/General Page
 
         #Classes Page
@@ -154,6 +201,11 @@ class MainWindow(QMainWindow):
         pageList.currentRowChanged.connect(stack.setCurrentIndex)
 
         dlg.exec_()
+    
+    def deleteElement(self, index, dlg):
+        self.document.doc.deleteChild(index)
+        self.document.updateView()
+        dlg.reject()
     
     def AddAClassDialog(self, index, classes):
         dlg = QDialog()
@@ -220,6 +272,7 @@ class MainWindow(QMainWindow):
     
     def createNewDocument(self, name):
         self.document.doc = api.new_document(name) 
+        self.document.changeDocument()
         with open(os.path.join(self.source_dir, "tmp/"+name+".html"), "w") as file:
             file.write(api.generateDocument(self.document.doc))
 
@@ -230,6 +283,9 @@ class MainWindow(QMainWindow):
             file.write(api.generateDocument(self.document.doc))
 
         self.browser.load(QUrl.fromLocalFile(os.path.join(self.source_dir, "tmp/"+self.document.doc.name+".html")))
+    
+    def onDocumentChange(self):
+        self.setWindowTitle("OSFED: "+self.document.doc.name)
 
 app = QApplication(sys.argv)
 

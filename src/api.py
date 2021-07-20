@@ -14,6 +14,12 @@ class Doc:
     def __str__(self):
         return "Document"
     
+    def deleteChild(self, index):
+        for a in self.childObjects:
+            for b in a.children:
+                if int(b) == int(index):
+                    a.children.remove(b)
+    
     def addChild(self, element):
         index = len(self.childObjects)
         element.osfed = str(index)
