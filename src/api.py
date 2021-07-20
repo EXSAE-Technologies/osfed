@@ -40,6 +40,9 @@ class El:
         document.childObjects.append(element)
         self.children.append(index)
 
+    def add_class(self, class_name, document):
+        self.classes.append(class_name)
+
 class Text(El):
     def __init__(self, value=""):
         El.__init__(self, "span")
@@ -47,14 +50,6 @@ class Text(El):
     
     def __str__(self):
         return super().__str__()
-
-class Dext:
-    def __init__(self, value=""):
-        self.value = value
-        self.attributes = []
-    
-    def __str__(self):
-        return "Text"
 
 def new_document(name="new"):
     document = Doc(name)
