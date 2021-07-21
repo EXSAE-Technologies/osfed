@@ -62,21 +62,33 @@ class MainWindow(QMainWindow):
         self.document.documentChanged.connect(self.onDocumentChange)
         self.document.changeDocument()
 
+        #Menu bar
         self.actionDocument = self.menuBar().addMenu("Document")
         self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/new_document.svg")), "New").triggered.connect(self.NewDocumentDialog)
         self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/save_document.svg")), "Save").triggered.connect(self.saveWorkSpace)
         self.actionDocument.addAction(QIcon(os.path.join(self.source_dir, "images/open_workspace.svg")), "Open").triggered.connect(self.openWorkSpace)
+        #/Menu bar
 
+        #Tool bar
         self.toolBar = QToolBar()
         self.addToolBar(self.toolBar)
         self.toolBar.addAction(QIcon(os.path.join(self.source_dir, "images/new_element.svg")), "Add element").triggered.connect(self.NewElementDialog)
+        self.toolBar.addAction(QIcon(os.path.join(self.source_dir, "images/edit_element.svg")), "Edit element").triggered.connect(self.SelectElementDialog)
+        #/Tool bar
 
         self.browser = QWebEngineView()
         page = CustomPage(parent=self.browser)
         page.onConsoleLog.connect(self.console_log)
         self.browser.setPage(page)
         self.browser.setHtml(api.generateDocument(self.document.doc))
-        self.browser.loadFinished.connect(lambda: self.browser.page().runJavaScript('document.addEventListener("dblclick", (data)=>{console.log(data.target.getAttribute("osfed"));});'))
+        self.browser.loadFinished.connect(lambda: self.browser.page().runJavaScript('''
+            document.addEventListener("dblclick", (data)=>{
+                console.log(data.target.getAttribute("osfed"));
+            });
+            style = document.createElement("style");
+            style.innerHTML = "*:hover \{ border: 1px solid green; \}";
+            document.body.appendChild(style);
+        '''))
         self.baseLayout.addWidget(self.browser)
     
     def console_log(self, level, message):
@@ -92,9 +104,32 @@ class MainWindow(QMainWindow):
     
     def openWorkSpace(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Open document", os.path.join(self.source_dir, "tmp"), "JSON (*.json)")
-        self.document.doc = api.open_from_file(filename)
-        self.document.updateView()
-        self.document.changeDocument()
+        if filename:
+            self.document.doc = api.open_from_file(filename)
+            self.document.updateView()
+            self.document.changeDocument()
+    
+    def SelectElementDialog(self):
+        dlg = QDialog()
+        dlg.setWindowTitle("Select Element")
+        dlg.setWindowIcon(self.icon)
+
+        layout = QFormLayout()
+        dlg.setLayout(layout)
+        
+        combo = QComboBox()
+        for element in self.document.doc.childObjects:
+            combo.addItem(element.osfed)
+        layout.addRow(QLabel("Element OSFED ID: "), combo)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.rejected.connect(dlg.reject)
+        buttonBox.accepted.connect(dlg.accept)
+        layout.addWidget(buttonBox)
+
+        dlg.accepted.connect(lambda: self.EditElementDialog(combo.currentText()))
+
+        dlg.exec_()
     
     def NewElementDialog(self):
         dlg = QDialog()
